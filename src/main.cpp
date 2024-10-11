@@ -1,4 +1,5 @@
 
+
 #include <Arduino.h>
 #include <GNSS.h>     //GNSS library
 #include <LowPower.h> //LowPower library
@@ -17,7 +18,7 @@ File myFile; // File object
 #define SERIAL_BAUDRATE 115200 /**< Serial baud rate */
 
 /*Header Strings*/
-String headerString = "gpstime,latitude,longitude,altitude,velocity,direction,positionDOP,HorizontalDOP,VerticalDOP,TimeDOP,satellites";
+String headerString = "time,latitude,longitude,altitude,velocity,direction,positionDOP,HorizontalDOP,VerticalDOP,TimeDOP,satellites";
 
 void setup()
 {
@@ -112,19 +113,13 @@ void loop()
     if (Gnss.waitUpdate(-1))
     {
         Serial.println("loop");
-        ledOff(PIN_LED0);
-        ledOff(PIN_LED1);
-        ledOff(PIN_LED2);
-        ledOff(PIN_LED3);
 
         /*GNSSのデータ取得*/
         Serial.println("Get NaviData");
         SpNavData NavData;
         Gnss.getNavData(&NavData);
-        ledOn(PIN_LED0);
         if (NavData.posFixMode == FixInvalid || NavData.posDataExist == 0)
         {
-            ledOn(PIN_LED3);
             return;
         }
 
@@ -133,17 +128,15 @@ void loop()
         if (myFile)
         {
             char writeBuffer[STRING_BUFFER_SIZE];
-            snprintf(writeBuffer, sizeof(writeBuffer), "%04d/%02d/%02dT%02d:%02d:%02d,%.10f,%.10f,%.10f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%2d\n",
+            snprintf(writeBuffer, sizeof(writeBuffer), "%04d/%02d/%02dT%02d:%02d:%02dZ, %.10f, %.10f, %.10f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %2d",
                      NavData.time.year, NavData.time.month, NavData.time.day,
                      NavData.time.hour, NavData.time.minute, NavData.time.sec,
                      NavData.latitude, NavData.longitude, NavData.altitude,
                      NavData.velocity, NavData.direction,
                      NavData.pdop, NavData.hdop, NavData.vdop, NavData.tdop,
                      NavData.numSatellites);
-            ledOn(PIN_LED1);
-            myFile.print(writeBuffer);
-            ledOn(PIN_LED2);
-            Serial.print(writeBuffer);
+            myFile.println(writeBuffer);
+            Serial.println(writeBuffer);
         }
     }
 }

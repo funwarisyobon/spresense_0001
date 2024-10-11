@@ -66,6 +66,7 @@ void setup()
     }
     dir.close();
 
+    // 下はmaxnumberの数でまとめられる。
     if (maxNumber == -1)
     {
         myFile = SD.open("dir/0000.csv", FILE_WRITE);

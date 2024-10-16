@@ -3,7 +3,9 @@
 #include <Arduino.h>
 #include <GNSS.h>     //GNSS library
 #include <LowPower.h> //LowPower library
-#include <SDHCI.h>    //SD card library
+
+#include <SDHCI.h> //SD card library
+#include <File.h>  //File library
 
 /*Parameters*/
 #define DEFAULT_INTERVAL_SEC 1
@@ -18,7 +20,7 @@ File myFile; // File object
 #define SERIAL_BAUDRATE 115200 /**< Serial baud rate */
 
 /*Header Strings*/
-String headerString = "time,latitude,longitude,altitude,velocity,direction,positionDOP,HorizontalDOP,VerticalDOP,TimeDOP,satellites";
+char headerString[120] = "time,latitude,longitude,altitude,velocity,direction,positionDOP,HorizontalDOP,VerticalDOP,TimeDOP,satellites";
 
 void setup()
 {
@@ -54,67 +56,69 @@ void setup()
     SD.mkdir("dir/");
 
     /*作業ファイルの作成*/
-    int maxNumber = -1;
+    bool sw_continueWriting = true;
     File dir = SD.open("dir/");
-    File entry;
-    // ここがバグっている。ファイルの数をカウントできていない
-    while ((entry = dir.openNextFile()))
+    int filenum = 0;
+    char filename[18];
+
+    snprintf(filename, sizeof(filename), "dir/%04d.csv", filenum);
+    // 0000.csvが存在しないとき
+    if (!SD.exists(filename))
     {
-        Serial.print("checked File: ");
-        Serial.println(entry.name());
-        if (!entry.isDirectory())
+        // 0000.csvを作成し、へッダーを書き込む
+        Serial.print("Create ");
+        Serial.println(filename);
+        myFile = SD.open(filename, FILE_WRITE);
+        myFile.println(headerString);
+        Serial.println(headerString);
+    }
+    else
+    {
+
+        while (1)
         {
-            String fileName = entry.name();
-            if (fileName.endsWith(".csv"))
+            filenum++;
+            snprintf(filename, sizeof(filename), "dir/%04d.csv", filenum);
+
+            // sw_continueWritingがtrueのとき、前のファイルに続けて書き込む
+            if (sw_continueWriting)
             {
 
-                int fileNumber = fileName.substring(0, 4).toInt();
-                if (fileNumber > maxNumber)
+                if (!SD.exists(filename))
                 {
-                    maxNumber = fileNumber;
+
+                    snprintf(filename, sizeof(filename), "dir/%04d.csv", filenum - 1);
+                    myFile = SD.open(filename, FILE_WRITE);
+
+                    Serial.println("sw_continueWriting is on. ");
+                    Serial.print("Write to ");
+                    Serial.println(filename);
+
+                    break;
+                }
+            }
+            else
+            // sw_continueWritingがfalseのとき、新しいファイルを作成する
+            {
+                if (!SD.exists(filename))
+                {
+                    myFile = SD.open(filename, FILE_WRITE);
+                    myFile.println(headerString);
+
+                    Serial.print("sw_continueWriting is off. ");
+                    Serial.print("Create ");
+                    Serial.println(filename);
+                    break;
                 }
             }
         }
-        entry.close();
     }
-    dir.close();
 
-    // 下はmaxnumberの数でまとめられる。
-    bool sw_continueWriting = false;
-    // ファイルがないとき
-    int fileNumber = 0;
-    if (maxNumber == -1)
+    if (myFile)
     {
-        fileNumber = 0;
-        Serial.println("No file found. Make new file.");
-    }
-    else
-    // ファイルがあるとき
-    {
-        // スイッチがONの時、maxNumberのファイルを開いて続きに書き込む。
-
-        if (sw_continueWriting)
-        {
-            fileNumber = maxNumber;
-            Serial.println("File found. Continue writing.");
-        }
-        else
-        {
-            fileNumber = maxNumber + 1;
-            Serial.print("maxNumber: ");
-            Serial.println(maxNumber);
-            Serial.println("File found. Make new file.");
-        }
-    }
-    // ファイル名を指定
-    char filePath[16];
-    snprintf(filePath, sizeof(filePath), "dir/%04d.csv", fileNumber);
-    Serial.println(filePath);
-    myFile = SD.open(filePath, FILE_WRITE);
-    if (maxNumber == -1 || !sw_continueWriting)
-    {
-        myFile.println(headerString);
-        Serial.println(headerString);
+        Serial.print(filename);
+        Serial.println(" is open");
+        myFile.println("test");
     }
 
     /*GNSS の初期化*/

@@ -41,6 +41,15 @@ void setup()
 
     /*ストレージの初期化*/
     SD.begin();
+    if (!SD.begin())
+    {
+        Serial.println("SD begin error");
+        error_flag = 1;
+        while (1)
+        {
+            ;
+        }
+    }
     Serial.println("SD begin");
     SD.mkdir("dir/");
 
@@ -48,13 +57,17 @@ void setup()
     int maxNumber = -1;
     File dir = SD.open("dir/");
     File entry;
+    // ここがバグっている。ファイルの数をカウントできていない
     while ((entry = dir.openNextFile()))
     {
+        Serial.print("checked File: ");
+        Serial.println(entry.name());
         if (!entry.isDirectory())
         {
             String fileName = entry.name();
             if (fileName.endsWith(".csv"))
             {
+
                 int fileNumber = fileName.substring(0, 4).toInt();
                 if (fileNumber > maxNumber)
                 {
@@ -67,31 +80,41 @@ void setup()
     dir.close();
 
     // 下はmaxnumberの数でまとめられる。
+    bool sw_continueWriting = false;
+    // ファイルがないとき
+    int fileNumber = 0;
     if (maxNumber == -1)
     {
-        myFile = SD.open("dir/0000.csv", FILE_WRITE);
-        if (myFile)
-        {
-            myFile.println(headerString);
-        }
+        fileNumber = 0;
+        Serial.println("No file found. Make new file.");
     }
     else
+    // ファイルがあるとき
     {
-        if (false)
-        { // スイッチがOFFの時
-            // digitalRead(PIN_SW) == LOW
-            myFile = SD.open("dir/" + String(maxNumber) + ".csv", FILE_WRITE);
+        // スイッチがONの時、maxNumberのファイルを開いて続きに書き込む。
+
+        if (sw_continueWriting)
+        {
+            fileNumber = maxNumber;
+            Serial.println("File found. Continue writing.");
         }
         else
-        { // スイッチがONの時
-            char fileName[16];
-            snprintf(fileName, sizeof(fileName), "dir/%04d.csv", maxNumber + 1);
-            myFile = SD.open(fileName, FILE_WRITE);
-            if (myFile)
-            {
-                myFile.println(headerString);
-            }
+        {
+            fileNumber = maxNumber + 1;
+            Serial.print("maxNumber: ");
+            Serial.println(maxNumber);
+            Serial.println("File found. Make new file.");
         }
+    }
+    // ファイル名を指定
+    char filePath[16];
+    snprintf(filePath, sizeof(filePath), "dir/%04d.csv", fileNumber);
+    Serial.println(filePath);
+    myFile = SD.open(filePath, FILE_WRITE);
+    if (maxNumber == -1 || !sw_continueWriting)
+    {
+        myFile.println(headerString);
+        Serial.println(headerString);
     }
 
     /*GNSS の初期化*/
@@ -104,12 +127,14 @@ void setup()
 
     Gnss.setInterval(DEFAULT_INTERVAL_SEC);
     Gnss.start();
+    Serial.println("GNSS start");
 
     /*低電力モードの有効化*/
 }
 
 void loop()
 {
+
     /*DEFAULT_INTERVAL_SEC秒ごとに動作*/
     if (Gnss.waitUpdate(-1))
     {

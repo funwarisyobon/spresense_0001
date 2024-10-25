@@ -26,6 +26,18 @@ char headerString[120] = "time,latitude,longitude,altitude,velocity,direction,po
 /*filename*/
 char filename[18];
 
+// sleep
+void sleep()
+{
+
+    // GPSのデータを保存して終了
+    Gnss.saveEphemeris();
+    Gnss.stop();
+    Gnss.end();
+    // 電源オフ
+    LowPower.coldSleep();
+}
+
 void setup()
 {
     // int error_flag = 0;
@@ -53,7 +65,7 @@ void setup()
     if (!SD.begin())
     {
         Serial.println("SD begin error");
-        error_flag = 1;
+        // error_flag = 1;
         while (1)
         {
             ;
@@ -145,39 +157,60 @@ void setup()
 
 void loop()
 {
+    int count_receive_signal = 0;
 
     /*DEFAULT_INTERVAL_SEC秒ごとに動作*/
-    if (Gnss.waitUpdate(-1))
-    {
-        Serial.println("loop");
+    if (!Gnss.waitUpdate(-1))
+        return;
 
-        /*GNSSのデータ取得*/
-        Serial.println("Get NaviData");
-        SpNavData NavData;
-        Gnss.getNavData(&NavData);
-        if (NavData.posFixMode == FixInvalid || NavData.posDataExist == 0)
+    Serial.println("loop");
+
+    /*GNSSのデータ取得*/
+    Serial.println("Get NaviData");
+    SpNavData NavData;
+    Gnss.getNavData(&NavData);
+    if (NavData.posFixMode == FixInvalid || NavData.posDataExist == 0)
+    {
+        return;
+    }
+    else
+    {
+        char writeBuffer[STRING_BUFFER_SIZE];
+        snprintf(writeBuffer, sizeof(writeBuffer), "%04d/%02d/%02dT%02d:%02d:%02dZ, %.10f, %.10f, %.10f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %2d",
+                 NavData.time.year, NavData.time.month, NavData.time.day,
+                 NavData.time.hour, NavData.time.minute, NavData.time.sec,
+                 NavData.latitude, NavData.longitude, NavData.altitude,
+                 NavData.velocity, NavData.direction,
+                 NavData.pdop, NavData.hdop, NavData.vdop, NavData.tdop,
+                 NavData.numSatellites);
+        myFile = SD.open(filename, FILE_WRITE);
+        if (myFile)
         {
-            return;
+            ledOn(PIN_LED0);
+            myFile.println(writeBuffer);
+            myFile.close();
+            ledOff(PIN_LED0);
         }
-        else
+        Serial.println(writeBuffer);
+        count_receive_signal++;
+    }
+    // RTCの時刻をGPSの時刻に合わせる。
+    if (count_receive_signal % 100 == 0)
+    {
+
+        RtcTime gps_time(NavData.time.year, NavData.time.month, NavData.time.day, NavData.time.hour, NavData.time.minute, NavData.time.sec, NavData.time.usec * 1000 /* RtcTime requires nsec */);
+
+        if (abs(RTC.getTime() - gps_time > 10))
         {
-            char writeBuffer[STRING_BUFFER_SIZE];
-            snprintf(writeBuffer, sizeof(writeBuffer), "%04d/%02d/%02dT%02d:%02d:%02dZ, %.10f, %.10f, %.10f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %2d",
-                     NavData.time.year, NavData.time.month, NavData.time.day,
-                     NavData.time.hour, NavData.time.minute, NavData.time.sec,
-                     NavData.latitude, NavData.longitude, NavData.altitude,
-                     NavData.velocity, NavData.direction,
-                     NavData.pdop, NavData.hdop, NavData.vdop, NavData.tdop,
-                     NavData.numSatellites);
-            myFile = SD.open(filename, FILE_WRITE);
-            if (myFile)
-            {
-                ledOn(PIN_LED0);
-                myFile.println(writeBuffer);
-                myFile.close();
-                ledOff(PIN_LED0);
-            }
-            Serial.println(writeBuffer);
+            RTC.setTime(gps_time);
+            Serial.println("RTC time is updated");
         }
     }
+
+    // sleepに入る。なにかのスイッチを想定
+
+    // if (false)
+    // {
+    //     attachInterrupt(digitalPinToInterrupt(PIN_SW), sleep, FALLING);
+    // }
 }

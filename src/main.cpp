@@ -6,6 +6,7 @@
 
 #include <SDHCI.h> //SD card library
 #include <File.h>  //File library
+#include <RTC.h>   //RTC library
 
 /*Parameters*/
 #define DEFAULT_INTERVAL_SEC 1
@@ -22,9 +23,12 @@ File myFile; // File object
 /*Header Strings*/
 char headerString[120] = "time,latitude,longitude,altitude,velocity,direction,positionDOP,HorizontalDOP,VerticalDOP,TimeDOP,satellites";
 
+/*filename*/
+char filename[18];
+
 void setup()
 {
-    int error_flag = 0;
+    // int error_flag = 0;
 
     /*DEBUG メッセージのシリアル出力 */
     Serial.begin(SERIAL_BAUDRATE);
@@ -40,6 +44,9 @@ void setup()
     ledOff(PIN_LED1);
     ledOff(PIN_LED2);
     ledOff(PIN_LED3);
+
+    /*RTC*/
+    RTC.begin();
 
     /*ストレージの初期化*/
     SD.begin();
@@ -59,7 +66,6 @@ void setup()
     bool sw_continueWriting = true;
     File dir = SD.open("dir/");
     int filenum = 0;
-    char filename[18];
 
     snprintf(filename, sizeof(filename), "dir/%04d.csv", filenum);
     // 0000.csvが存在しないとき
@@ -70,6 +76,7 @@ void setup()
         Serial.println(filename);
         myFile = SD.open(filename, FILE_WRITE);
         myFile.println(headerString);
+        myFile.flush();
         Serial.println(headerString);
     }
     else
@@ -152,10 +159,7 @@ void loop()
         {
             return;
         }
-
-        /* データの保存 */
-
-        if (myFile)
+        else
         {
             char writeBuffer[STRING_BUFFER_SIZE];
             snprintf(writeBuffer, sizeof(writeBuffer), "%04d/%02d/%02dT%02d:%02d:%02dZ, %.10f, %.10f, %.10f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %2d",
@@ -165,7 +169,14 @@ void loop()
                      NavData.velocity, NavData.direction,
                      NavData.pdop, NavData.hdop, NavData.vdop, NavData.tdop,
                      NavData.numSatellites);
-            myFile.println(writeBuffer);
+            myFile = SD.open(filename, FILE_WRITE);
+            if (myFile)
+            {
+                ledOn(PIN_LED0);
+                myFile.println(writeBuffer);
+                myFile.close();
+                ledOff(PIN_LED0);
+            }
             Serial.println(writeBuffer);
         }
     }

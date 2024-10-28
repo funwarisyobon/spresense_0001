@@ -1,5 +1,5 @@
 
-
+/*include library*/
 #include <Arduino.h>
 #include <GNSS.h>     //GNSS library
 #include <LowPower.h> //LowPower library
@@ -169,6 +169,8 @@ void loop()
     Serial.println("Get NaviData");
     SpNavData NavData;
     Gnss.getNavData(&NavData);
+
+    /*もし、受信できていたら、ファイルに保存*/
     if (NavData.posFixMode == FixInvalid || NavData.posDataExist == 0)
     {
         return;
@@ -184,6 +186,7 @@ void loop()
                  NavData.pdop, NavData.hdop, NavData.vdop, NavData.tdop,
                  NavData.numSatellites);
         myFile = SD.open(filename, FILE_WRITE);
+        /*ファイル書き込み部分。書き込み中はLED0を点灯*/
         if (myFile)
         {
             ledOn(PIN_LED0);
@@ -194,13 +197,13 @@ void loop()
         Serial.println(writeBuffer);
         count_receive_signal++;
     }
-    // RTCの時刻をGPSの時刻に合わせる。
+    // 100回に一回の受診ごとに、RTCの時刻をGPSの時刻に合わせる。
     if (count_receive_signal % 100 == 0)
     {
 
         RtcTime gps_time(NavData.time.year, NavData.time.month, NavData.time.day, NavData.time.hour, NavData.time.minute, NavData.time.sec, NavData.time.usec * 1000 /* RtcTime requires nsec */);
 
-        if (abs(RTC.getTime() - gps_time > 10))
+        if (abs(RTC.getTime() - (double)gps_time) > 10)
         {
             RTC.setTime(gps_time);
             Serial.println("RTC time is updated");

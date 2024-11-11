@@ -2,7 +2,12 @@
 
 //GNSS
 #include <GNSS.h>     //GNSS library
-SpGnss Gnss; // GNSS object
+//拡張ボード使用時はSpGnssAddonを使用
+//SpGnss Gnss; // GNSS object
+SpGnssAddon Gnss;
+
+
+
 
 #include <LowPower.h> //LowPower library
 

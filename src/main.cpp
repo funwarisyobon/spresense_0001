@@ -1,20 +1,29 @@
 
 /*include library*/
 #include <Arduino.h>
+
+
+/*include GNSS*/
 #include <GNSS.h>     //GNSS library
+SpGnss Gnss; // GNSS object
+
 #include <LowPower.h> //LowPower library
 
+/*include SDHCI*/
 #include <SDHCI.h> //SD card library
+SDClass SD; //SD object
+
+/*include File*/
 #include <File.h>  //File library
+File myFile; //File object
+
 #include <RTC.h>   //RTC library
 
 /*Parameters*/
 #define DEFAULT_INTERVAL_SEC 1
 #define STRING_BUFFER_SIZE 128
 
-SpGnss Gnss; // GNSS object
-SDClass SD;  // SD object
-File myFile; // File object
+
 
 /*DEBUG*/
 #define DEBUG_MODE true        /**< Debug mode */
